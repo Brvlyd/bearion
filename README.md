@@ -1,39 +1,39 @@
-# 🐻 Bearion - Modern E-commerce Platform
+# Bearion 👕👔
 
-Website e-commerce modern untuk clothing brand Bearion, dibangun dengan Next.js 16, TypeScript, dan Supabase.
+Bearion adalah platform e-commerce untuk clothing brand, dibangun dengan Next.js, TypeScript, dan Supabase. Aplikasi ini mencakup katalog produk, keranjang dan checkout, pembayaran, pengiriman, hingga dashboard admin untuk mengelola produk dan pesanan.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.1.1-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![Supabase](https://img.shields.io/badge/Supabase-Backend-green)
 
-## 🚀 Features
+## Fitur
 
-### User Features
-- 🛍️ **Product Catalog** - Browse products dengan kategori
-- 🎠 **Image Carousel** - Multiple images per product dengan auto-rotate
-- 🔍 **Product Search & Filter** - Cari produk dengan mudah
-- 👤 **User Authentication** - Register & login untuk user
-- 📱 **Responsive Design** - Mobile-friendly interface
-- 🏠 **Modern Landing Page** - Hero section yang menarik
+### Untuk Pengguna
+- Katalog produk dengan kategori, pencarian, dan filter
+- Galeri gambar produk dengan carousel otomatis
+- Keranjang belanja dan proses checkout
+- Pembayaran via PayPal dan verifikasi bukti transfer manual
+- Estimasi ongkir dan pelacakan pengiriman (Biteship)
+- Registrasi dan login pengguna
+- Riwayat dan detail pesanan
+- Galeri community dan halaman kontak
+- Tampilan bilingual (ID/EN) dan responsif di perangkat mobile
 
-### Admin Features
-- 🔐 **Admin Dashboard** - Kelola produk dan inventory
-- 📸 **Multi-Image Upload** - Upload multiple images dengan drag & drop
-- ✏️ **Product Management** - CRUD operations untuk products
-- 🎯 **Role-Based Access** - Admin dan user terpisah
-- 📊 **Stock Management** - Track inventory real-time
-- 🖼️ **Image Reordering** - Atur urutan tampilan gambar
+### Untuk Admin
+- Dashboard admin untuk kelola produk dan inventory
+- Upload multi-gambar dengan drag & drop, serta pengaturan urutan tampilan
+- CRUD produk dan manajemen stok real-time
+- Role-based access (admin terpisah dari user biasa)
+- Pengaturan konten halaman (site settings, About Us)
 
-## 📋 Prerequisites
+## Prasyarat
 
-Sebelum setup, pastikan kamu punya:
+- Node.js versi 18 atau lebih baru
+- npm / yarn / pnpm
+- Git
+- Akun Supabase — [supabase.com](https://supabase.com)
 
-- **Node.js** (versi 18 atau lebih baru)
-- **npm** / **yarn** / **pnpm**
-- **Git** untuk clone repository
-- **Akun Supabase** (gratis) - [supabase.com](https://supabase.com)
-
-## 🛠️ Setup di Device Baru
+## Setup di Device Baru
 
 ### 1. Clone Repository
 
@@ -44,68 +44,36 @@ cd bearion
 
 ### 2. Install Dependencies
 
-Pilih salah satu package manager:
-
 ```bash
-# Menggunakan npm
 npm install
-
-# Atau menggunakan yarn
-yarn install
-
-# Atau menggunakan pnpm
-pnpm install
 ```
 
 ### 3. Setup Supabase
 
-#### a. Buat Project Baru di Supabase
-1. Login ke [supabase.com](https://supabase.com)
-2. Klik "New Project"
-3. Isi nama project, database password, dan region
-4. Tunggu project selesai dibuat (~2 menit)
+1. Login ke [supabase.com](https://supabase.com) dan buat project baru.
+2. Buka **Settings → API**, lalu salin **Project URL** dan **anon/public key**.
+3. Buka **Storage**, buat bucket baru bernama `product-images` dan set sebagai public bucket.
+4. Buka **SQL Editor**, lalu jalankan file dari `db/schema/` secara berurutan:
+   - `db/schema/database-schema.sql`
+   - `db/schema/users-schema.sql`
+   - `db/schema/product-images-schema.sql`
 
-#### b. Dapatkan Credentials
-1. Buka project yang baru dibuat
-2. Klik **Settings** → **API**
-3. Copy:
-   - **Project URL** (contoh: https://xxx.supabase.co)
-   - **anon/public key**
-
-#### c. Create Storage Bucket
-1. Buka **Storage** di sidebar
-2. Klik **New bucket**
-3. Nama bucket: `product-images`
-4. **Public bucket**: ✅ Centang
-5. Klik **Create bucket**
-
-#### d. Run SQL Schemas
-1. Buka **SQL Editor** di sidebar
-2. Klik **New query**
-3. Copy & paste isi file dari `db/schema/` secara berurutan:
-   - `db/schema/database-schema.sql` → Run
-   - `db/schema/users-schema.sql` → Run
-   - `db/schema/product-images-schema.sql` → Run
-
-Urutan lengkapnya (termasuk cart, orders, dan payment) ada di
-[db/README.md](db/README.md).
+   Urutan lengkap (termasuk cart, orders, dan payment) ada di [db/README.md](db/README.md).
 
 ### 4. Environment Variables
-
-Buat file `.env.local` di root folder:
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` dan isi dengan credentials Supabase:
+Isi minimal untuk menjalankan aplikasi secara lokal:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-**⚠️ PENTING**: Ganti dengan credentials project kamu!
+Variabel lain (email, PayPal, Biteship) bersifat opsional tergantung fitur yang ingin diaktifkan — lihat `.env.local.example` untuk daftar lengkapnya dan dokumentasi terkait di `docs/setup/`.
 
 ### 5. Update Next.js Config
 
@@ -116,7 +84,7 @@ images: {
   remotePatterns: [
     {
       protocol: 'https',
-      hostname: 'your-project.supabase.co', // Ganti ini!
+      hostname: 'your-project.supabase.co',
       pathname: '/storage/v1/object/public/**',
     },
   ],
@@ -129,23 +97,13 @@ images: {
 npm run dev
 ```
 
-Buka browser dan akses: **http://localhost:3000**
+Buka http://localhost:3000 di browser. ✅
 
-## 🎯 Setup Admin Account
+## Setup Admin Account
 
-Setelah database sudah jalan, buat admin account:
-
-### 1. Signup Dulu di Aplikasi
-1. Buka http://localhost:3000/register
-2. Register dengan email & password
-3. Verify email (kalau diminta)
-
-### 2. Tambahkan ke Admins Table
-1. Buka **Supabase Dashboard**
-2. Klik **Authentication** → **Users**
-3. Copy **User ID** dari user yang baru dibuat
-4. Buka **SQL Editor**
-5. Run query ini:
+1. Register akun baru di `/register`, lalu verifikasi email jika diminta.
+2. Buka **Supabase Dashboard → Authentication → Users**, salin User ID akun tersebut.
+3. Buka **SQL Editor**, lalu jalankan:
 
 ```sql
 INSERT INTO admins (id, email, role, full_name)
@@ -157,189 +115,120 @@ VALUES (
 );
 ```
 
-Sekarang bisa login sebagai admin di `/login`!
+Login sebagai admin melalui `/login`.
 
-## 📁 Project Structure
+## Struktur Project
 
 ```
 bearion/
-├── app/                         # Next.js App Router
-│   ├── admin/                   # Admin pages
-│   │   ├── dashboard/           # Admin dashboard
-│   │   ├── login/               # Admin login (redirect)
-│   │   └── layout.tsx           # Admin layout with auth
-│   ├── api/                     # Route handlers (orders, paypal, email, dll.)
-│   ├── auth/                    # Confirm, OTP, reset password
-│   ├── cart/                    # Keranjang
-│   ├── catalog/                 # Product catalog
-│   ├── checkout/                # Checkout flow
-│   ├── community/               # Galeri community
-│   ├── login/                   # User & admin login
-│   ├── orders/                  # Riwayat & detail order
-│   ├── payment/                 # Halaman pembayaran
-│   ├── products/[id]/           # Product detail
-│   ├── profile/                 # User profile
-│   └── register/                # User registration
-├── components/                  # React components
-│   ├── Header.tsx               # Navigation
-│   ├── ProductCard.tsx          # Product card with carousel
-│   ├── ImageCarousel.tsx        # Auto-rotating carousel
-│   ├── MultiImageUpload.tsx     # Multi-image uploader
-│   └── CatalogView.tsx          # Catalog view
-├── lib/                         # Utilities & services
-│   ├── hooks/                   # React hooks (pagination, realtime)
-│   ├── supabase.ts              # Supabase client
-│   ├── auth.ts                  # Authentication service
-│   └── products.ts              # Product service
-├── db/                          # SQL untuk Supabase — lihat db/README.md
-│   ├── schema/                  # Definisi tabel (setup database baru)
-│   ├── migrations/              # Perubahan schema setelah setup
-│   ├── fixes/                   # Script perbaikan sekali pakai
-│   └── checks/                  # Query verifikasi
-├── docs/                        # Dokumentasi — lihat docs/README.md
-│   ├── setup/                   # Panduan instalasi & konfigurasi
-│   ├── features/                # Dokumentasi fitur
-│   └── troubleshooting/         # Catatan perbaikan masalah
-├── scripts/                     # Script maintenance (upload gambar, cek i18n)
-├── public/                      # Static assets
-└── package.json                 # Dependencies
+├── app/                 # Next.js App Router
+│   ├── admin/           # Dashboard & login admin
+│   ├── api/             # Route handlers (orders, paypal, email, shipping, dll.)
+│   ├── auth/            # Konfirmasi, OTP, reset password
+│   ├── cart/            # Keranjang
+│   ├── catalog/         # Katalog produk
+│   ├── checkout/        # Proses checkout
+│   ├── community/       # Galeri community
+│   ├── contact/         # Halaman kontak
+│   ├── login/           # Login user & admin
+│   ├── orders/          # Riwayat & detail pesanan
+│   ├── payment/         # Halaman pembayaran
+│   ├── products/[id]/   # Detail produk
+│   ├── profile/         # Profil user
+│   └── register/        # Registrasi user
+├── components/          # React components
+├── lib/                 # Utilities & services (auth, produk, supabase, dll.)
+├── db/                  # SQL untuk Supabase — lihat db/README.md
+│   ├── schema/          # Definisi tabel (setup database baru)
+│   ├── migrations/      # Perubahan schema setelah setup
+│   ├── fixes/           # Script perbaikan sekali pakai
+│   └── checks/          # Query verifikasi
+├── docs/                # Dokumentasi — lihat docs/README.md
+├── scripts/             # Script maintenance
+├── public/              # Static assets
+└── package.json
 ```
 
-## 🔐 Authentication
+## Autentikasi
 
-- **Admin**: Login di `/login` (auto-detect role)
-- **User**: Register di `/register`, login di `/login`
-- **Session**: Managed oleh Supabase Auth
-- Row Level Security (RLS) policies untuk database security
+- Admin login di `/login` (role terdeteksi otomatis)
+- User register di `/register`, login di `/login`
+- Session dikelola oleh Supabase Auth
+- Row Level Security (RLS) diterapkan pada database
 
-## 🎨 Tech Stack
+## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, Turbopack)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: Supabase (PostgreSQL)
-- **Storage**: Supabase Storage
+- **Database & Storage**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
+- **Email**: Brevo
+- **Pembayaran**: PayPal
+- **Pengiriman**: Biteship
 - **Icons**: Lucide React
 
-## 📱 Available Scripts
+## Script
 
 ```bash
-# Development
-npm run dev          # Start dev server (localhost:3000)
-
-# Production
-npm run build        # Build untuk production
-npm run start        # Start production server
-
-# Linting
-npm run lint         # Run ESLint
+npm run dev            # Development server (localhost:3000)
+npm run build          # Build untuk production
+npm run start          # Start production server
+npm run lint            # Menjalankan ESLint
+npm run upload-images  # Upload gambar produk secara batch
+npm run i18n:check      # Cek kelengkapan terjemahan
 ```
 
-## 🌐 Deployment
+## Deployment
 
-### Deploy ke Vercel (Recommended)
+Deploy ke [Vercel](https://vercel.com):
 
-1. Push code ke GitHub
-2. Buka [vercel.com](https://vercel.com)
-3. Import repository
-4. Add environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-5. Deploy!
+1. Push kode ke GitHub.
+2. Import repository di Vercel.
+3. Tambahkan environment variables yang diperlukan (lihat `.env.local.example`).
+4. Deploy.
 
-**Catatan**: Jangan lupa set environment variables di platform deployment!
+Detail lebih lanjut ada di [docs/setup/DEPLOYMENT.md](docs/setup/DEPLOYMENT.md).
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### Image tidak muncul
-- ✅ Cek hostname di `next.config.ts`
-- ✅ Cek bucket `product-images` sudah public
-- ✅ Restart dev server setelah update config
+**Gambar tidak muncul**
+- Cek hostname di `next.config.ts`
+- Pastikan bucket `product-images` sudah public
+- Restart dev server setelah update config
 
-### Login gagal
-- ✅ Cek SQL schema sudah dijalankan
-- ✅ Cek email sudah verified (kalau enabled)
-- ✅ Cek user/admin sudah ada di database
+**Login gagal**
+- Pastikan SQL schema sudah dijalankan
+- Cek status verifikasi email (jika enabled)
+- Pastikan user/admin sudah ada di database
 
-### Build error
-- ✅ Cek Node.js version (minimal 18)
-- ✅ Delete folder `.next` dan `node_modules`
-- ✅ Run `npm install` ulang
+**Build error**
+- Cek versi Node.js (minimal 18)
+- Hapus folder `.next` dan `node_modules`, lalu `npm install` ulang
 
-### Database error
-- ✅ Cek Supabase project masih aktif
-- ✅ Cek credentials di `.env.local` benar
-- ✅ Cek RLS policies sudah di-setup
+**Database error**
+- Pastikan Supabase project masih aktif
+- Cek credentials di `.env.local`
+- Pastikan RLS policies sudah di-setup
 
-## 📚 Documentation
+## Dokumentasi
 
-- [docs/README.md](docs/README.md) - Indeks seluruh dokumentasi
-- [docs/setup/SETUP.md](docs/setup/SETUP.md) - Panduan setup awal
-- [docs/setup/AUTH_SETUP.md](docs/setup/AUTH_SETUP.md) - Authentication system guide
-- [docs/setup/DEPLOYMENT.md](docs/setup/DEPLOYMENT.md) - Panduan deployment
-- [docs/features/FEATURES.md](docs/features/FEATURES.md) - Complete feature list
-- [db/README.md](db/README.md) - Urutan menjalankan script SQL
+- [docs/README.md](docs/README.md) — indeks seluruh dokumentasi
+- [docs/setup/SETUP.md](docs/setup/SETUP.md) — panduan setup awal
+- [docs/setup/AUTH_SETUP.md](docs/setup/AUTH_SETUP.md) — panduan autentikasi
+- [docs/setup/DEPLOYMENT.md](docs/setup/DEPLOYMENT.md) — panduan deployment
+- [docs/features/FEATURES.md](docs/features/FEATURES.md) — daftar fitur lengkap
+- [db/README.md](db/README.md) — urutan menjalankan script SQL
 
-## 🎯 Quick Start Checklist
+## Skema Database (ringkas)
 
-- [ ] Clone repository
-- [ ] Install dependencies (`npm install`)
-- [ ] Create Supabase project
-- [ ] Create storage bucket `product-images`
-- [ ] Run all SQL schemas
-- [ ] Create `.env.local` dengan credentials
-- [ ] Update `next.config.ts` hostname
-- [ ] Run `npm run dev`
-- [ ] Create admin account
-- [ ] Test upload product dengan images
-- [ ] Test carousel di product detail
+**products** — id, name, description, price, stock, category, image_url, created_at, updated_at
 
-## 🗄️ Database Schema
+**admins** — id (foreign key ke auth.users), email, role, full_name, created_at
 
-### Products Table
-- id (UUID)
-- name (VARCHAR)
-- description (TEXT)
-- price (DECIMAL)
-- stock (INTEGER)
-- category (VARCHAR)
-- image_url (TEXT)
-- created_at (TIMESTAMP)
-- updated_at (TIMESTAMP)
+Skema lengkap ada di `db/schema/`.
 
-### Admins Table
-- id (UUID, foreign key ke auth.users)
-- email (VARCHAR)
-- created_at (TIMESTAMP)
+## Kontak
 
-## 📝 Usage
-
-### User Flow
-1. Kunjungi homepage → Browse catalog
-2. Filter by category atau search
-3. Sort products
-4. Click product untuk detail
-5. View availability dan info lengkap
-
-### Admin Flow
-1. Login di `/admin/login`
-2. View dashboard dengan stats
-3. Add/Edit/Delete products
-4. Update stock levels
-5. Monitor semua produk
-
-## 📦 Sample Data
-
-Database schema sudah include sample products. Anda bisa:
-- Modify di SQL script (`db/schema/database-schema.sql`)
-- Atau hapus dan tambah via admin dashboard
-
-## 📞 Contact
-
-- **Developer**: Brvlyd
-- **Repository**: [github.com/Brvlyd/bearion](https://github.com/Brvlyd/bearion)
-
----
-
-Made with ❤️ using Next.js & Supabase
+- Developer: Brvlyd
+- Repository: [github.com/Brvlyd/bearion](https://github.com/Brvlyd/bearion)
