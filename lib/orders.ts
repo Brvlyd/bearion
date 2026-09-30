@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Order, OrderItem, ShippingAddress } from './supabase'
+import type { Order, OrderItem } from './supabase'
 
 export const orderService = {
   /**
@@ -139,12 +139,39 @@ export const orderService = {
     }
   },
 
+  /** Admin cancel: server-side so the stock reserved at checkout is restored. */
+  async cancelOrderAsAdmin(orderId: string): Promise<void> {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const accessToken = sessionData.session?.access_token
+
+    if (!accessToken) throw new Error('Not authenticated')
+
+    const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+
+    const result = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Gagal membatalkan pesanan')
+    }
+  },
+
   // Update order status
   async updateOrderStatus(
     orderId: string,
     status: Order['status']
   ): Promise<Order> {
     try {
+      if (status === 'cancelled') {
+        await this.cancelOrderAsAdmin(orderId)
+
+        const { data, error } = await supabase.from('orders').select('*').eq('id', orderId).single()
+        if (error) throw error
+        return data
+      }
+
       const requiresProof = ['processing', 'shipped', 'delivered'].includes(status)
 
       if (requiresProof) {
@@ -193,8 +220,6 @@ export const orderService = {
         updateData.shipped_at = new Date().toISOString()
       } else if (status === 'delivered') {
         updateData.delivered_at = new Date().toISOString()
-      } else if (status === 'cancelled') {
-        updateData.cancelled_at = new Date().toISOString()
       }
 
       const { data, error } = await supabase

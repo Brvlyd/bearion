@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest, getServiceClient } from '@/lib/api-auth'
+import { cancelOrderAndRestoreStock } from '@/lib/order-cancellation'
 
 // POST /api/orders/[orderNumber]/cancel
 //
-// Lets a customer back out of an order that is still 'pending' — before an
-// admin has confirmed it and before any payment succeeded (a successful
-// PayPal capture always moves status to 'confirmed', so 'pending' already
-// implies unpaid). Restores the stock that was reserved at order creation.
+// Lets a customer back out of an order that is still 'pending' and unpaid.
+// 'pending' alone is not enough: approving a transfer proof marks the order
+// paid, and a customer who has uploaded a proof is waiting on the admin — in
+// both cases money has (probably) moved, so cancelling is the shop's call.
 
 type RouteContext = {
   params: Promise<{ orderNumber: string }>
 }
+
+const NOT_CANCELLABLE = 'Only orders that are still pending can be cancelled'
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -28,7 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { data: order, error: orderError } = await serviceClient
       .from('orders')
-      .select('id, user_id, status')
+      .select('id, user_id, status, payment_status')
       .eq('order_number', orderNumber)
       .maybeSingle()
 
@@ -36,49 +39,40 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 })
     }
 
-    if (order.status !== 'pending') {
-      return NextResponse.json(
-        { message: 'Only orders that are still pending can be cancelled' },
-        { status: 409 }
-      )
+    if (order.status !== 'pending' || order.payment_status === 'paid') {
+      return NextResponse.json({ message: NOT_CANCELLABLE }, { status: 409 })
     }
 
-    // Guards the race where an admin confirms the order between the read above
-    // and this write — only actually cancel if it is still 'pending'.
-    const { data: cancelled, error: updateError } = await serviceClient
-      .from('orders')
-      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-      .eq('id', order.id)
-      .eq('status', 'pending')
-      .select('id')
-      .maybeSingle()
-
-    if (updateError) {
-      console.error('Failed to cancel order:', updateError)
-      return NextResponse.json({ message: 'Failed to cancel order' }, { status: 500 })
-    }
-
-    if (!cancelled) {
-      return NextResponse.json(
-        { message: 'Only orders that are still pending can be cancelled' },
-        { status: 409 }
-      )
-    }
-
-    await serviceClient
+    // A proof the admin has not rejected means money may already be on its way.
+    // A rejected one does not, so the customer is free to walk away from it.
+    const { data: proofs, error: proofsError } = await serviceClient
       .from('payments')
-      .update({ status: 'cancelled' })
+      .select('proof_verification_status')
       .eq('order_id', order.id)
-      .neq('status', 'success')
+      .not('payment_proof_url', 'is', null)
 
-    const { error: stockError } = await serviceClient.rpc('restore_order_stock', {
-      target_order_id: order.id,
+    const proofUnderReview =
+      !!proofsError || (proofs || []).some((proof) => proof.proof_verification_status !== 'rejected')
+
+    if (proofUnderReview) {
+      return NextResponse.json(
+        {
+          message:
+            'Bukti pembayaran Anda sedang diperiksa. Hubungi toko jika ingin membatalkan pesanan ini.',
+          code: 'PROOF_UNDER_REVIEW',
+        },
+        { status: 409 }
+      )
+    }
+
+    const outcome = await cancelOrderAndRestoreStock(serviceClient, {
+      orderId: order.id,
+      orderNumber,
+      fromStatuses: ['pending'],
     })
 
-    // The order is already cancelled at this point — a stock hiccup shouldn't
-    // undo that. Log it for manual reconciliation instead of failing the request.
-    if (stockError) {
-      console.error(`Failed to restore stock after cancelling order ${orderNumber}:`, stockError)
+    if (outcome === 'not_cancellable') {
+      return NextResponse.json({ message: NOT_CANCELLABLE }, { status: 409 })
     }
 
     return NextResponse.json({ message: 'Order cancelled' }, { status: 200 })

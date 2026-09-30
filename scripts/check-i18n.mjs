@@ -9,12 +9,14 @@ const ALLOWED_LITERALS = new Set([
   'BEARION',
   'hello@bearion.com',
   'categories-schema.sql',
+  'WhatsApp',
 ])
 
 // Admin pages the shop owner operates directly are written in plain Indonesian
 // on purpose — a language toggle there only makes courier settings harder to read.
 const SINGLE_LANGUAGE_FILES = new Set([
   'app/admin/dashboard/shipping/page.tsx',
+  'app/admin/dashboard/contact/page.tsx',
   'components/HeroImageManager.tsx',
 ])
 

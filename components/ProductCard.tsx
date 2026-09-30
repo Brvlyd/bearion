@@ -30,12 +30,6 @@ export default function ProductCard({ product, images: providedImages }: Product
     return product.name
   }
   
-  const getProductDescription = () => {
-    if (language === 'id' && product.description_id) {
-      return product.description_id
-    }
-    return product.description
-  }
   const hasProvidedImages = providedImages !== undefined
   const [images, setImages] = useState<string[]>(
     hasProvidedImages ? providedImages : []

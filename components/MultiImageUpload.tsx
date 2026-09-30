@@ -10,12 +10,11 @@ import ImageEditorModal from './ImageEditorModal'
 import LoadingSpinner from './LoadingSpinner'
 
 interface MultiImageUploadProps {
-  productId?: string
   onImagesChange: (urls: string[]) => void
   initialImages?: string[]
 }
 
-export default function MultiImageUpload({ productId, onImagesChange, initialImages = [] }: MultiImageUploadProps) {
+export default function MultiImageUpload({ onImagesChange, initialImages = [] }: MultiImageUploadProps) {
   const { tr } = useLanguage()
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)

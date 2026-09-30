@@ -4,6 +4,7 @@ import { getIdrPerUsdRate } from '@/lib/paypal'
 import { getEffectiveIdrPrice } from '@/lib/price'
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit'
 import {
+  clearUserCart,
   computeSubtotal,
   loadCartLines,
   loadOwnedAddress,
@@ -257,8 +258,19 @@ export async function POST(request: NextRequest) {
       .insert(orderItems.map((item) => ({ ...item, order_id: order.id })))
 
     if (itemsError) {
-      // Never leave a total with no lines behind it.
+      // Never leave a total with no lines behind it. The insert is one statement,
+      // so a failure here means no stock was taken for any line.
       await serviceClient.from('orders').delete().eq('id', order.id)
+
+      // Raised by the stock trigger (db/migrations/order-integrity-guards.sql)
+      // when another checkout bought the last units between our check and now.
+      if (itemsError.message?.includes('INSUFFICIENT_STOCK')) {
+        return NextResponse.json(
+          { message: 'Stok salah satu produk baru saja habis. Periksa kembali keranjang Anda.' },
+          { status: 409 }
+        )
+      }
+
       throw itemsError
     }
 
@@ -273,7 +285,14 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     })
 
-    if (paymentError) throw paymentError
+    if (paymentError) {
+      // Without a payment row the order can never be paid, yet its items have
+      // already reserved stock. Hand the stock back and drop the order so the
+      // customer can simply retry.
+      await serviceClient.rpc('restore_order_stock', { target_order_id: order.id })
+      await serviceClient.from('orders').delete().eq('id', order.id)
+      throw paymentError
+    }
 
     // Usage counters are advisory: a failure here must not undo a paid-for order.
     if (appliedPromotions.length > 0) {
@@ -284,6 +303,14 @@ export async function POST(request: NextRequest) {
         .then(({ error }) => {
           if (error) console.error('Failed to increment promotion usage:', error.message)
         })
+    }
+
+    // PayPal keeps the cart until the capture succeeds (the customer may still
+    // back out of the PayPal window); every other method is final here.
+    if (paymentGateway !== 'paypal') {
+      await clearUserCart(serviceClient, caller.userId).catch((error) =>
+        console.error('Failed to clear cart after order:', error)
+      )
     }
 
     return NextResponse.json({ order }, { status: 201 })

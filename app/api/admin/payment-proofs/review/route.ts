@@ -113,6 +113,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { data: existingOrder, error: orderFetchError } = await supabaseAdmin
+      .from('orders')
+      .select('admin_notes, status')
+      .eq('id', body.orderId)
+      .maybeSingle()
+
+    if (orderFetchError) {
+      console.error('❌ Order fetch error:', orderFetchError)
+      throw new Error(getErrorMessage(orderFetchError))
+    }
+
+    // Cancelling already returned the stock, so approving now would confirm a
+    // sale for goods that may be gone. The shop should refund instead.
+    if (body.action === 'approve' && existingOrder?.status === 'cancelled') {
+      return NextResponse.json(
+        { message: 'Pesanan ini sudah dibatalkan. Kembalikan dana pembeli secara manual.' },
+        { status: 409 }
+      )
+    }
+
     const verificationStatus = body.action === 'approve' ? 'verified' : 'rejected'
     const paymentStatus = body.action === 'approve' ? 'paid' : 'pending'
 
@@ -124,6 +144,10 @@ export async function POST(request: NextRequest) {
         proof_verification_status: verificationStatus,
         proof_verified_by: caller.userId,
         proof_verified_at: new Date().toISOString(),
+        // Keep payments.status in step with the order, as a PayPal capture does.
+        ...(body.action === 'approve'
+          ? { status: 'success', paid_at: new Date().toISOString() }
+          : {}),
       })
       .eq('id', body.paymentId)
       .eq('order_id', body.orderId)
@@ -140,17 +164,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: existingOrder, error: orderFetchError } = await supabaseAdmin
-      .from('orders')
-      .select('admin_notes')
-      .eq('id', body.orderId)
-      .maybeSingle()
-
-    if (orderFetchError) {
-      console.error('❌ Order fetch error:', orderFetchError)
-      throw new Error(getErrorMessage(orderFetchError))
-    }
-
     const currentAdminNotes = typeof existingOrder?.admin_notes === 'string' ? existingOrder.admin_notes : null
 
     const nextAdminNotes = body.action === 'reject'
@@ -159,11 +172,17 @@ export async function POST(request: NextRequest) {
       ? null
       : currentAdminNotes
 
+    // An approved transfer confirms a still-pending order, same as a PayPal
+    // capture. Without this the order stayed 'pending' after payment, and the
+    // customer could still cancel an order they had already paid for.
+    const confirmOrder = body.action === 'approve' && existingOrder?.status === 'pending'
+
     const { error: updateOrderError } = await supabaseAdmin
       .from('orders')
       .update({
         payment_status: paymentStatus,
         admin_notes: nextAdminNotes,
+        ...(confirmOrder ? { status: 'confirmed', confirmed_at: new Date().toISOString() } : {}),
       })
       .eq('id', body.orderId)
 

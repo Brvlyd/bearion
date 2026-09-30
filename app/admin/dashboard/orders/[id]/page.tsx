@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { notificationService } from '@/lib/notifications'
 import { usePaymentProofUrl } from '@/lib/payment-proof-url'
 import { useLanguage } from '@/lib/i18n'
+import { useDialog } from '@/lib/dialog'
 import { SHIPPING_ENABLED } from '@/lib/store-config'
 import SafeImage from '@/components/SafeImage'
 import Notification from '@/components/Notification'
@@ -24,6 +25,7 @@ export default function OrderDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { tr } = useLanguage()
+  const { confirmDialog } = useDialog()
   const orderId = params.id as string
 
   const [order, setOrder] = useState<Order | null>(null)
@@ -126,6 +128,22 @@ export default function OrderDetailPage() {
         ),
       })
       return
+    }
+
+    if (editStatus === 'cancelled' && order.status !== 'cancelled') {
+      const confirmed = await confirmDialog(
+        order.payment_status === 'paid'
+          ? tr(
+              'Cancel this order? Stock goes back to the store. The customer has already paid — refund them manually.',
+              'Batalkan pesanan ini? Stok akan dikembalikan ke toko. Pembeli sudah membayar — kembalikan uangnya secara manual.'
+            )
+          : tr(
+              'Cancel this order? Stock goes back to the store and this cannot be undone.',
+              'Batalkan pesanan ini? Stok akan dikembalikan ke toko dan tindakan ini tidak bisa dibatalkan.'
+            ),
+        { isDangerous: true }
+      )
+      if (!confirmed) return
     }
 
     try {
@@ -577,10 +595,14 @@ export default function OrderDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">{tr('Order Status', 'Status Pesanan')}</label>
                 {editMode ? (
+                  <>
+                  {/* Cancelling restored the stock, so reviving the order would
+                      sell units the store may no longer have. */}
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as Order['status'])}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black"
+                    disabled={order.status === 'cancelled'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     <option value="pending">{tr('Pending', 'Menunggu')}</option>
                     <option value="confirmed">{tr('Confirmed', 'Dikonfirmasi')}</option>
@@ -590,6 +612,15 @@ export default function OrderDetailPage() {
                     <option value="cancelled">{tr('Cancelled', 'Dibatalkan')}</option>
                     <option value="refunded">{tr('Refunded', 'Dikembalikan')}</option>
                   </select>
+                  {order.status === 'cancelled' && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {tr(
+                        'Cancelled orders cannot be reopened. Ask the customer to order again.',
+                        'Pesanan yang sudah dibatalkan tidak bisa dibuka lagi. Minta pembeli memesan ulang.'
+                      )}
+                    </p>
+                  )}
+                  </>
                 ) : (
                   <div>{getStatusBadge(order.status)}</div>
                 )}

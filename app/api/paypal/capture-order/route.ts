@@ -1,38 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { authenticateRequest, getServiceClient } from '@/lib/api-auth'
 import { capturePayPalOrder } from '@/lib/paypal'
-import { isCaptureVerified, markCaptureFailed, markOrderPaid } from '@/lib/paypal-settlement'
+import { clearUserCart } from '@/lib/shipping-cart'
+import {
+  getExpectedUsdAmount,
+  isCaptureVerified,
+  markCaptureFailed,
+  markOrderPaid,
+} from '@/lib/paypal-settlement'
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error')
-
-const getSupabaseSessionClient = (accessToken: string) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
-const getSupabaseServiceClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
 
 // POST /api/paypal/capture-order
 // Captures a previously created PayPal order and, only after independently verifying
 // the result with PayPal, marks the matching internal order as paid.
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization') || ''
-    const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    const caller = await authenticateRequest(request)
 
-    if (!accessToken) {
+    if (!caller) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
     }
 
@@ -44,28 +30,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Missing orderNumber or paypalOrderId' }, { status: 400 })
     }
 
-    const sessionClient = getSupabaseSessionClient(accessToken)
-    const { data: userData, error: userError } = await sessionClient.auth.getUser()
-
-    if (userError || !userData.user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: order, error: orderError } = await sessionClient
+    const { data: order, error: orderError } = await caller.sessionClient
       .from('orders')
-      .select('id, order_number, user_id, payment_status')
+      .select('id, order_number, user_id, status, payment_status, total, fx_rate_idr_usd')
       .eq('order_number', orderNumber)
       .maybeSingle()
 
-    if (orderError || !order || order.user_id !== userData.user.id) {
+    if (orderError || !order || order.user_id !== caller.userId) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 })
     }
 
-    const serviceClient = getSupabaseServiceClient()
+    const serviceClient = getServiceClient()
 
     const { data: payment, error: paymentError } = await serviceClient
       .from('payments')
-      .select('id, status, amount, transaction_id')
+      .select('id, status, transaction_id')
       .eq('order_id', order.id)
       .eq('payment_gateway', 'paypal')
       .maybeSingle()
@@ -88,8 +67,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'PayPal order does not match this order' }, { status: 400 })
     }
 
+    // A cancelled (or expired) order has already given its stock back, so taking
+    // money for it would sell goods that may no longer exist.
+    if (order.status !== 'pending') {
+      return NextResponse.json({ message: 'This order can no longer be paid' }, { status: 409 })
+    }
+
     const capture = await capturePayPalOrder(paypalOrderId)
-    const expectedAmount = Number(payment.amount)
+    const expectedAmount = getExpectedUsdAmount(order)
 
     if (!isCaptureVerified({ capture, orderNumber: order.order_number, expectedAmount })) {
       console.error('PayPal capture failed verification:', {
@@ -111,6 +96,12 @@ export async function POST(request: NextRequest) {
       capture,
       fallbackTransactionId: paypalOrderId,
     })
+
+    // The browser clears the cart too, but it may never get the chance (tab
+    // closed right after approving). Best-effort: the order is already paid.
+    await clearUserCart(serviceClient, caller.userId).catch((error) =>
+      console.error('Failed to clear cart after PayPal capture:', getErrorMessage(error))
+    )
 
     return NextResponse.json({ message: 'Payment captured', orderNumber: order.order_number }, { status: 200 })
   } catch (error) {

@@ -16,3 +16,11 @@ export const TAX_ENABLED: boolean = false
 
 /** PPN rate used only when TAX_ENABLED is true. */
 export const TAX_RATE = 0.11
+
+/**
+ * Hours a customer has to pay (or upload a transfer proof) before the order is
+ * cancelled and its stock released. Must match the default max_age of
+ * expire_stale_pending_orders() in db/migrations/order-integrity-guards.sql —
+ * this copy only drives the deadline shown on the payment page.
+ */
+export const UNPAID_ORDER_EXPIRY_HOURS = 24

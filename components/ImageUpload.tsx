@@ -12,10 +12,9 @@ import LoadingSpinner from './LoadingSpinner'
 interface ImageUploadProps {
   currentImageUrl?: string
   onImageChange: (url: string) => void
-  productId?: string
 }
 
-export default function ImageUpload({ currentImageUrl, onImageChange, productId }: ImageUploadProps) {
+export default function ImageUpload({ currentImageUrl, onImageChange }: ImageUploadProps) {
   const { tr } = useLanguage()
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -57,7 +56,7 @@ export default function ImageUpload({ currentImageUrl, onImageChange, productId 
       const filePath = `products/${fileName}`
 
       // Upload to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('product-images')
         .upload(filePath, file, {
           cacheControl: '3600',

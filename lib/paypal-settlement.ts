@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PayPalCaptureResult } from './paypal'
+import { convertIdrToUsd } from './price'
 
 // Shared settlement rules for PayPal money that has already moved.
 //
@@ -13,10 +14,33 @@ import type { PayPalCaptureResult } from './paypal'
 // underpayment).
 const AMOUNT_EPSILON = 0.01
 
+/**
+ * The USD amount a PayPal capture for this order must equal.
+ *
+ * Derived only from the orders row (total + the rate locked for it), never from
+ * payments.amount: customers may UPDATE their own payment row to attach a
+ * transfer proof, so anything stored there can be rewritten through the public
+ * Supabase API. Trusting it let a customer pair a self-made cheap PayPal order
+ * with an expensive store order. Returns null when no rate was locked, which
+ * callers must treat as unverifiable.
+ */
+export function getExpectedUsdAmount(order: {
+  total: number | string | null
+  fx_rate_idr_usd: number | string | null
+}): number | null {
+  const total = Number(order.total)
+  const rate = Number(order.fx_rate_idr_usd)
+
+  if (!Number.isFinite(total) || total <= 0) return null
+  if (!Number.isFinite(rate) || rate <= 0) return null
+
+  return Number(convertIdrToUsd(total, rate))
+}
+
 export function isCaptureVerified(params: {
   capture: PayPalCaptureResult
   orderNumber: string
-  expectedAmount: number
+  expectedAmount: number | null
 }): boolean {
   const { capture, orderNumber, expectedAmount } = params
   const capturedAmount = capture.capturedAmount ? Number(capture.capturedAmount) : NaN
@@ -24,7 +48,9 @@ export function isCaptureVerified(params: {
   return (
     capture.status === 'COMPLETED' &&
     capture.customId === orderNumber &&
+    capture.capturedCurrency === 'USD' &&
     Number.isFinite(capturedAmount) &&
+    expectedAmount !== null &&
     Number.isFinite(expectedAmount) &&
     Math.abs(capturedAmount - expectedAmount) <= AMOUNT_EPSILON
   )

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useLanguage } from '@/lib/i18n'
 import Link from 'next/link'
 import { authService } from '@/lib/auth'
-import { Package, BarChart3, Users, ShoppingCart, X, Image, Images, Info, CreditCard, Settings, Truck, Gift, Mail } from 'lucide-react'
+import { Package, BarChart3, Users, ShoppingCart, X, Image as ImageIcon, Images, Info, CreditCard, Settings, Truck, Gift, Mail } from 'lucide-react'
 import AdminHeader from '@/components/AdminHeader'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { useSiteSettings } from '@/components/SiteSettingsProvider'
@@ -45,7 +45,7 @@ export default function AdminLayout({
       } else {
         setIsAdmin(true)
       }
-    } catch (error) {
+    } catch {
       router.push('/admin/login')
     } finally {
       setLoading(false)
@@ -188,7 +188,7 @@ export default function AdminLayout({
             {pathname?.startsWith('/admin/dashboard/landing-page') && (
               <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full"></span>
             )}
-            <Image className={`w-5 h-5 transition-all duration-200 ${
+            <ImageIcon className={`w-5 h-5 transition-all duration-200 ${
               pathname?.startsWith('/admin/dashboard/landing-page') ? 'scale-110' : 'group-hover:scale-110'
             }`} />
             <span className="font-medium">{language === 'en' ? 'Content' : 'Konten'}</span>

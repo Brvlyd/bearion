@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getImageUrl, getCategoryPlaceholder } from '@/lib/image-utils'
 
 interface SafeImageProps {
@@ -41,30 +41,26 @@ export default function SafeImage({
   objectFit = 'cover',
   onLoad,
 }: SafeImageProps) {
-  const [imageSrc, setImageSrc] = useState<string>(getImageUrl(src))
-  const [hasError, setHasError] = useState(false)
+  // Remember which src failed rather than copying src into state: a new src
+  // prop then gets its own attempt automatically, with no effect to resync.
+  const resolvedSrc = getImageUrl(src)
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const hasError = failedSrc === resolvedSrc
 
-  // Update imageSrc when src prop changes
-  useEffect(() => {
-    const nextSrc = getImageUrl(src)
-    setImageSrc(nextSrc)
-    setHasError(false)
-  }, [src])
+  const imageSrc = hasError
+    ? category
+      ? getCategoryPlaceholder(category)
+      : getImageUrl(null)
+    : resolvedSrc
 
   const handleError = () => {
-    if (!hasError) {
-      setHasError(true)
-      // Use category-specific placeholder if available
-      const fallback = category 
-        ? getCategoryPlaceholder(category)
-        : getImageUrl(null)
-      setImageSrc(fallback)
-    }
+    if (!hasError) setFailedSrc(resolvedSrc)
   }
+
+  const altText = alt || 'Product image'
 
   const imageProps = {
     src: imageSrc,
-    alt: alt || 'Product image',
     className: `${className} ${hasError ? 'opacity-75' : ''}`,
     onError: handleError,
     onLoad: onLoad ? (event: React.SyntheticEvent<HTMLImageElement>) => onLoad(event.currentTarget) : undefined,
@@ -82,6 +78,7 @@ export default function SafeImage({
       <div className="relative w-full h-full">
         <Image
           {...imageProps}
+          alt={altText}
           fill
           style={{ objectFit }}
         />
@@ -93,6 +90,7 @@ export default function SafeImage({
     return (
       <Image
         {...imageProps}
+        alt={altText}
         width={width}
         height={height}
         style={{ objectFit, width: '100%', height: 'auto' }}
@@ -105,6 +103,7 @@ export default function SafeImage({
     <div className="relative w-full h-full">
       <Image
         {...imageProps}
+        alt={altText}
         fill
         style={{ objectFit }}
       />

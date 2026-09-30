@@ -42,6 +42,11 @@ Yang berkaitan dengan keamanan dan sebaiknya selalu dijalankan:
 - `migrations/secure-storage-policies.sql`
 - `migrations/secure-order-write-policies.sql`
 - `migrations/make-payment-proofs-bucket-private.sql`
+- `migrations/order-integrity-guards.sql` — stok tidak bisa minus, customer tidak
+  bisa mengubah nominal/status pembayaran sendiri, dan pesanan yang tidak dibayar
+  dalam 24 jam dibatalkan otomatis (stoknya kembali). Aktifkan ekstensi
+  **pg_cron** (Database → Extensions) lalu jalankan ulang file ini supaya
+  pembatalan otomatisnya terjadwal tiap jam.
 
 Verifikasi hasilnya dengan `checks/test-security-policies.sql`.
 

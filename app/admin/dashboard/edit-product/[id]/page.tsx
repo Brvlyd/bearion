@@ -580,7 +580,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               {tr('Product Images', 'Gambar Produk')}
             </label>
             <MultiImageUpload
-              productId={productId}
               onImagesChange={(urls) => setFormData((prev) => ({ ...prev, images: urls }))}
               initialImages={formData.images}
             />

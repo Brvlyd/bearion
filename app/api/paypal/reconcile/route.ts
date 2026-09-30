@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceClient } from '@/lib/api-auth'
 import { capturePayPalOrder, getPayPalOrder } from '@/lib/paypal'
-import { isCaptureVerified, markCaptureFailed, markOrderPaid } from '@/lib/paypal-settlement'
+import {
+  getExpectedUsdAmount,
+  isCaptureVerified,
+  markCaptureFailed,
+  markOrderPaid,
+} from '@/lib/paypal-settlement'
 
 // POST /api/paypal/reconcile
 //
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Without one there is nothing at PayPal to ask about.
     const { data: payments, error: paymentsError } = await serviceClient
       .from('payments')
-      .select('id, order_id, amount, transaction_id, updated_at')
+      .select('id, order_id, transaction_id, updated_at')
       .eq('payment_gateway', 'paypal')
       .eq('status', 'pending')
       .not('transaction_id', 'is', null)
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
       try {
         const { data: order, error: orderError } = await serviceClient
           .from('orders')
-          .select('id, order_number, payment_status')
+          .select('id, order_number, status, payment_status, total, fx_rate_idr_usd')
           .eq('id', payment.order_id)
           .maybeSingle()
 
@@ -94,11 +99,26 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // A cancelled or expired order already gave its stock back. Never capture
+        // for it; if PayPal already took the money, flag it for a manual refund.
+        if (order.status !== 'pending') {
+          if (remote.status === 'COMPLETED') {
+            errored += 1
+            console.error(
+              `CRITICAL: PayPal captured money for a ${order.status} order. Refund manually — ` +
+                `orderNumber=${order.order_number}, paypalOrderId=${paypalOrderId}`
+            )
+          } else {
+            stillWaiting += 1
+          }
+          continue
+        }
+
         // APPROVED means the money was authorised but our capture never landed.
         const capture =
           remote.status === 'APPROVED' ? await capturePayPalOrder(paypalOrderId) : remote
 
-        const expectedAmount = Number(payment.amount)
+        const expectedAmount = getExpectedUsdAmount(order)
 
         if (!isCaptureVerified({ capture, orderNumber: order.order_number, expectedAmount })) {
           console.error('PayPal reconcile: capture failed verification', {

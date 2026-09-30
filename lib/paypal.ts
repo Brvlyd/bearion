@@ -137,6 +137,7 @@ export type PayPalCaptureResult = {
   status: string
   customId: string | null
   capturedAmount: string | null
+  capturedCurrency: string | null
   captureId: string | null
   raw: unknown
 }
@@ -147,7 +148,7 @@ function parseOrderPayload(data: {
   status?: string
   purchase_units?: Array<{
     custom_id?: string
-    payments?: { captures?: Array<{ id?: string; amount?: { value?: string } }> }
+    payments?: { captures?: Array<{ id?: string; amount?: { value?: string; currency_code?: string } }> }
   }>
 }): PayPalCaptureResult {
   const purchaseUnit = data?.purchase_units?.[0]
@@ -157,6 +158,7 @@ function parseOrderPayload(data: {
     status: data.status ?? '',
     customId: purchaseUnit?.custom_id ?? null,
     capturedAmount: capture?.amount?.value ?? null,
+    capturedCurrency: capture?.amount?.currency_code ?? null,
     captureId: capture?.id ?? null,
     raw: data,
   }

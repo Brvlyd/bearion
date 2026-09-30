@@ -1,6 +1,6 @@
 import { useLanguage } from '@/lib/i18n'
 import { AlertCircle, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 interface ConfirmDeleteModalProps {
   isOpen: boolean

@@ -1,37 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { authenticateRequest, getServiceClient } from '@/lib/api-auth'
 import { createPayPalOrder, convertIdrToUsd, getIdrPerUsdRate } from '@/lib/paypal'
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : 'Unknown error')
-
-const getSupabaseSessionClient = (accessToken: string) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
-const getSupabaseServiceClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
 
 // POST /api/paypal/create-order
 // Creates a live PayPal order for an existing internal order, converting IDR -> USD server-side.
 // The client only ever sends an orderNumber — amounts are always recomputed from the database.
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization') || ''
-    const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    const caller = await authenticateRequest(request)
 
-    if (!accessToken) {
+    if (!caller) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
     }
 
@@ -42,21 +22,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Missing orderNumber' }, { status: 400 })
     }
 
-    const sessionClient = getSupabaseSessionClient(accessToken)
-    const { data: userData, error: userError } = await sessionClient.auth.getUser()
-
-    if (userError || !userData.user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-    }
-
     // RLS scopes this SELECT to the caller's own orders; the explicit user_id check below is defense in depth.
-    const { data: order, error: orderError } = await sessionClient
+    const { data: order, error: orderError } = await caller.sessionClient
       .from('orders')
-      .select('id, order_number, total, user_id, payment_status, fx_rate_idr_usd')
+      .select('id, order_number, total, user_id, status, payment_status, fx_rate_idr_usd')
       .eq('order_number', orderNumber)
       .maybeSingle()
 
-    if (orderError || !order || order.user_id !== userData.user.id) {
+    if (orderError || !order || order.user_id !== caller.userId) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 })
     }
 
@@ -64,7 +37,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Order is already paid' }, { status: 409 })
     }
 
-    const serviceClient = getSupabaseServiceClient()
+    if (order.status !== 'pending') {
+      return NextResponse.json({ message: 'This order can no longer be paid' }, { status: 409 })
+    }
+
+    const serviceClient = getServiceClient()
 
     const { data: payment, error: paymentError } = await serviceClient
       .from('payments')
@@ -88,8 +65,22 @@ export async function POST(request: NextRequest) {
     // customer is charged matches the one quoted at checkout. Orders created
     // before that column was populated fall back to a live rate.
     const lockedRate = Number(order.fx_rate_idr_usd)
-    const idrPerUsd =
-      Number.isFinite(lockedRate) && lockedRate > 0 ? lockedRate : await getIdrPerUsdRate()
+    const hasLockedRate = Number.isFinite(lockedRate) && lockedRate > 0
+    const idrPerUsd = hasLockedRate ? lockedRate : await getIdrPerUsdRate()
+
+    // Capture verification recomputes the expected USD amount from this orders
+    // column, so a rate fetched here must be stored before PayPal is involved.
+    if (!hasLockedRate) {
+      const { error: rateError } = await serviceClient
+        .from('orders')
+        .update({ fx_rate_idr_usd: idrPerUsd })
+        .eq('id', order.id)
+
+      if (rateError) {
+        console.error('Failed to lock FX rate on order:', rateError)
+        return NextResponse.json({ message: 'Failed to create PayPal order' }, { status: 500 })
+      }
+    }
 
     const usdAmount = convertIdrToUsd(order.total, idrPerUsd)
 

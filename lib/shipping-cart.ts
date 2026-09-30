@@ -76,6 +76,28 @@ export async function loadCartLines(
   }))
 }
 
+/**
+ * Empties every cart the user owns once an order has taken its contents.
+ *
+ * Server-side so a closed tab or dropped connection after checkout cannot leave
+ * the old items behind to be ordered (and their stock reserved) a second time.
+ * Covers all cart rows because some accounts have duplicates (see above).
+ */
+export async function clearUserCart(client: SupabaseClient, userId: string): Promise<void> {
+  const { data: carts, error: cartError } = await client
+    .from('carts')
+    .select('id')
+    .eq('user_id', userId)
+
+  if (cartError) throw cartError
+
+  const cartIds = (carts || []).map((cart) => cart.id as string)
+  if (cartIds.length === 0) return
+
+  const { error } = await client.from('cart_items').delete().in('cart_id', cartIds)
+  if (error) throw error
+}
+
 export const toParcelItems = (lines: CartLine[]): ParcelItem[] =>
   lines.map((line) => ({
     quantity: line.quantity,

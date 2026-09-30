@@ -1,5 +1,12 @@
 # Documentation
 
+**Mulai dari [`HANDOFF.md`](HANDOFF.md)** — checklist wajib sebelum go-live, job
+terjadwal, cara testing, dan batasan yang sudah diketahui.
+
+Dokumen di `features/` dan `troubleshooting/` sebagian besar adalah catatan
+historis saat fitur dibangun atau diperbaiki. Kode dan `db/` adalah sumber
+kebenaran; pakai dokumen ini sebagai latar belakang, bukan instruksi.
+
 ## `setup/` — panduan instalasi & konfigurasi
 
 | File                                   | Isi                                            |

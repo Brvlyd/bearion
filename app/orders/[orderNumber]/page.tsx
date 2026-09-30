@@ -180,7 +180,12 @@ export default function UserOrderDetailPage() {
     return order.payment_method === 'paypal' && order.payment_status !== 'paid'
   }, [order])
 
-  const canCancelOrder = order?.status === 'pending'
+  // Mirrors the server rule in /api/orders/[orderNumber]/cancel: once paid, or
+  // while a transfer proof waits for the admin, cancelling is the shop's call.
+  const proofUnderReview =
+    !!payment?.payment_proof_url && payment.proof_verification_status !== 'rejected'
+  const canCancelOrder =
+    order?.status === 'pending' && order.payment_status !== 'paid' && !proofUnderReview
 
   const handlePaypalPayAgainSuccess = () => {
     setPaypalError('')
@@ -200,7 +205,12 @@ export default function UserOrderDetailPage() {
       const message = error instanceof Error ? error.message : ''
       setCancelModalOpen(false)
       await alertDialog(
-        message.includes('pending')
+        message.includes('Bukti pembayaran')
+          ? tr(
+              'Your payment proof is being reviewed. Please contact the store to cancel this order.',
+              'Bukti pembayaran Anda sedang diperiksa. Hubungi toko jika ingin membatalkan pesanan ini.'
+            )
+          : message.includes('pending')
           ? tr(
               'This order can no longer be cancelled — it may already be confirmed.',
               'Pesanan ini sudah tidak bisa dibatalkan — mungkin sudah dikonfirmasi.'

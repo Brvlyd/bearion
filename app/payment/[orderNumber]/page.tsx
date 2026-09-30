@@ -10,6 +10,7 @@ import { paymentService } from '@/lib/payments'
 import { usePaymentProofUrl } from '@/lib/payment-proof-url'
 import { DEFAULT_PAYMENT_METHODS, parsePaymentMethodError } from '@/lib/payment-methods'
 import { useLanguage } from '@/lib/i18n'
+import { UNPAID_ORDER_EXPIRY_HOURS } from '@/lib/store-config'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import type { Order, Payment, PaymentMethodConfig } from '@/lib/supabase'
 
@@ -19,7 +20,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf
 export default function PaymentPage() {
   const router = useRouter()
   const params = useParams()
-  const { tr } = useLanguage()
+  const { tr, language } = useLanguage()
 
   const orderNumber = params.orderNumber as string
 
@@ -207,6 +208,16 @@ export default function PaymentPage() {
   const transferAccountNumber = paymentMethodConfig?.account_number || '-'
   const transferInstructions = paymentMethodConfig?.instructions || ''
 
+  // Unpaid orders with no proof are cancelled after this, releasing their stock.
+  const showPaymentDeadline =
+    order.status === 'pending' && order.payment_status !== 'paid' && !payment?.payment_proof_url
+  const paymentDeadline = new Date(
+    new Date(order.created_at).getTime() + UNPAID_ORDER_EXPIRY_HOURS * 60 * 60 * 1000
+  ).toLocaleString(language === 'id' ? 'id-ID' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+
   return (
     <div className="min-h-screen bg-gray-50 text-black">
       <div className="container mx-auto px-4 pt-24 lg:pt-28 pb-12">
@@ -224,6 +235,15 @@ export default function PaymentPage() {
             <p className="text-gray-600">
               {tr('Total Amount', 'Total Pembayaran')}: <span className="font-semibold text-black">{formatPrice(totalAmount)}</span>
             </p>
+            {showPaymentDeadline && (
+              <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                {tr(
+                  'Please pay and upload your proof before {deadline}, otherwise this order is cancelled automatically.',
+                  'Selesaikan pembayaran dan upload bukti sebelum {deadline}. Jika lewat, pesanan dibatalkan otomatis.',
+                  { deadline: paymentDeadline }
+                )}
+              </p>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">

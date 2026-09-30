@@ -63,7 +63,6 @@ export default function CheckoutPage() {
   const idrPerUsd = useIdrPerUsdRate()
   const [currentStep, setCurrentStep] = useState<Step>('shipping')
   const [userId, setUserId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string>('')
   
   // Cart
   const [cartItems, setCartItems] = useState<CartItem[]>([])
@@ -131,7 +130,6 @@ export default function CheckoutPage() {
     }
 
     setUserId(user.id)
-    setUserEmail(user.email || '')
     await Promise.all([
       loadData(user.id),
       loadPaymentMethods(),
@@ -659,6 +657,20 @@ export default function CheckoutPage() {
         await alertDialog(message, { variant: 'error' })
         setCurrentStep('shipping')
         if (selectedAddress) void loadShippingRates(selectedAddress.id)
+        return
+      }
+
+      // Someone else bought the last units after this cart was loaded. The cart
+      // page shows which line is short, so send them there to adjust it.
+      if (message.toLowerCase().includes('stok')) {
+        await alertDialog(
+          tr(
+            'One of the products just sold out. Please review your cart.',
+            'Stok salah satu produk baru saja habis. Periksa kembali keranjang Anda.'
+          ),
+          { variant: 'error' }
+        )
+        router.push('/cart')
         return
       }
 

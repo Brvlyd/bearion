@@ -2,7 +2,7 @@
 
 Bearion adalah platform e-commerce untuk clothing brand, dibangun dengan Next.js, TypeScript, dan Supabase. Aplikasi ini mencakup katalog produk, keranjang dan checkout, pembayaran, pengiriman, hingga dashboard admin untuk mengelola produk dan pesanan.
 
-![Next.js](https://img.shields.io/badge/Next.js-16.1.1-black)
+![Next.js](https://img.shields.io/badge/Next.js-16.3.8-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
 ![Supabase](https://img.shields.io/badge/Supabase-Backend-green)
 
@@ -28,7 +28,7 @@ Bearion adalah platform e-commerce untuk clothing brand, dibangun dengan Next.js
 
 ## Prasyarat
 
-- Node.js versi 18 atau lebih baru
+- Node.js versi 20.9 atau lebih baru
 - npm / yarn / pnpm
 - Git
 - Akun Supabase — [supabase.com](https://supabase.com)
@@ -174,10 +174,15 @@ bearion/
 npm run dev            # Development server (localhost:3000)
 npm run build          # Build untuk production
 npm run start          # Start production server
-npm run lint            # Menjalankan ESLint
+npm run lint           # Menjalankan ESLint
+npm run typecheck      # Cek tipe TypeScript
+npm test               # Unit test (logika harga, promo, PayPal, guard API) — tanpa network
+npm run test:e2e       # Smoke test browser (read-only); set BASE_URL untuk menguji situs live
 npm run upload-images  # Upload gambar produk secara batch
-npm run i18n:check      # Cek kelengkapan terjemahan
+npm run i18n:check     # Cek kelengkapan terjemahan
 ```
+
+Sebelum `npm run test:e2e` pertama kali, pasang browser-nya sekali: `npx playwright install chromium`.
 
 ## Deployment
 
@@ -203,7 +208,7 @@ Detail lebih lanjut ada di [docs/setup/DEPLOYMENT.md](docs/setup/DEPLOYMENT.md).
 - Pastikan user/admin sudah ada di database
 
 **Build error**
-- Cek versi Node.js (minimal 18)
+- Cek versi Node.js (minimal 20.9)
 - Hapus folder `.next` dan `node_modules`, lalu `npm install` ulang
 
 **Database error**
@@ -213,6 +218,7 @@ Detail lebih lanjut ada di [docs/setup/DEPLOYMENT.md](docs/setup/DEPLOYMENT.md).
 
 ## Dokumentasi
 
+- [docs/HANDOFF.md](docs/HANDOFF.md) — **mulai di sini**: checklist go-live, job terjadwal, dan batasan yang diketahui
 - [docs/README.md](docs/README.md) — indeks seluruh dokumentasi
 - [docs/setup/SETUP.md](docs/setup/SETUP.md) — panduan setup awal
 - [docs/setup/AUTH_SETUP.md](docs/setup/AUTH_SETUP.md) — panduan autentikasi

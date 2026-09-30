@@ -116,8 +116,9 @@ export const paymentService = {
   },
 
   /**
-   * Upload payment proof and store its storage path (not a public URL) on the
-   * payment row. The uploads bucket is private — proof images can show a bank
+   * Upload payment proof and return its storage path (not a public URL). The
+   * caller records it on the payment row together with the status change, in a
+   * single write — see submitPaymentProof. The uploads bucket is private — proof images can show a bank
    * account number and the customer's full name — so viewing one always goes
    * through paymentService.getPaymentProofSignedUrl() rather than a bare link.
    * There's no bucket fallback: silently dropping a proof into a public
@@ -146,11 +147,6 @@ export const paymentService = {
         .upload(filePath, file)
 
       if (uploadError) throw uploadError
-
-      await supabase
-        .from('payments')
-        .update({ payment_proof_url: filePath })
-        .eq('id', paymentId)
 
       return filePath
     } catch (error) {
@@ -194,7 +190,11 @@ export const paymentService = {
         throw new Error('PAYMENT_NOT_FOUND')
       }
 
-      const publicUrl = await this.uploadPaymentProof(payment.id, file)
+      // Stored in the same UPDATE as status 'processing' below. Two separate
+      // writes left a window (a dropped connection in between) where the proof
+      // was saved but the payment still looked unpaid, so the order could be
+      // cancelled or expired with the customer's money already sent.
+      const proofPath = await this.uploadPaymentProof(payment.id, file)
 
       // Clear previous rejection notice after user uploads a new proof.
       const { data: orderMeta } = await supabase
@@ -215,7 +215,7 @@ export const paymentService = {
           .from('payments')
           .update({
             status: 'processing',
-            payment_proof_url: publicUrl,
+            payment_proof_url: proofPath,
             proof_verification_status: 'pending',
             proof_verified_by: null,
             proof_verified_at: null,
@@ -230,7 +230,15 @@ export const paymentService = {
       } catch (metadataError) {
         if (isProofVerificationMetadataError(metadataError)) {
           // Fallback for databases that haven't added proof verification columns yet.
-          return await this.updatePaymentStatus(payment.id, 'processing')
+          const { data, error } = await supabase
+            .from('payments')
+            .update({ status: 'processing', payment_proof_url: proofPath })
+            .eq('id', payment.id)
+            .select()
+            .single()
+
+          if (error) throw error
+          return data
         }
 
         throw metadataError
