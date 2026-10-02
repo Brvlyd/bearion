@@ -17,6 +17,7 @@ const ALLOWED_LITERALS = new Set([
 const SINGLE_LANGUAGE_FILES = new Set([
   'app/admin/dashboard/shipping/page.tsx',
   'app/admin/dashboard/contact/page.tsx',
+  'app/admin/dashboard/account/page.tsx',
   'components/HeroImageManager.tsx',
 ])
 
